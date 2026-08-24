@@ -1,86 +1,103 @@
 # Scanbot3000 Kinematics
 
-Interactive visualization of Scanbot3000 kinematics in Three.js. The web UI can run
-standalone for visualization or connect to the Raspberry Pi FastAPI service for live
-positioning, motion, and range sampling.
+A browser-based Three.js kinematics visualizer with optional local machine-control and range-sampling integration.
 
-## Web App (Three.js)
+![License](https://img.shields.io/badge/license-Apache--2.0%20%2B%20Commons%20Clause-blue)
+![Three.js](https://img.shields.io/badge/Three.js-0.157.0-black)
+![Frontend](https://img.shields.io/badge/frontend-static%20HTML%2FCSS%2FJS-4c6ef5)
+![API](https://img.shields.io/badge/API-compatible%20FastAPI-05998b)
 
-Location: `webapp/`
+Scanbot3000 Kinematics renders a 3D model of the stage and scan geometry in the browser. It can run by itself for visualization, or connect to a separately maintained FastAPI bridge for live positions, coordinated motion, homing, driver controls, LEDs, scan paths, emergency stop, and VL6180X range sampling.
 
-Quick start:
+> The backend source and controller firmware are **not included** in this repository. Hardware and software details that cannot be verified from repository evidence are explicitly marked as unknown rather than guessed.
+
+![Architecture infographic](docs/assets/architecture.svg)
+
+## 🚀 Getting started
+
+For visualization only:
 
 ```bash
 cd webapp
-python -m http.server
+python -m http.server 8000
 ```
 
 Open `http://localhost:8000/index.html`.
 
-Notes:
-- Uses the Three.js CDN (requires internet access).
-- The web app is standalone HTML/CSS/JS (no build step).
-- API features use the FastAPI service documented in `context from raspberry pi API/api.md`.
+For a compatible backend on another machine, the public-ready client is intended to accept an endpoint at runtime rather than committing a machine-specific address:
 
-### API Configuration (optional)
-Update `apiBaseUrl` in `webapp/app.js` to point at your API host (default is
-`http://192.168.178.222:8001/api`). When the API is offline, the UI stays in
-visualization mode and disables API-driven controls.
+```text
+http://localhost:8000/index.html?api=http://<host>:8001/api
+```
 
-### Interface Overview
-- Top bar: Driver Status, Driver Settings, Home (Z) popups/actions.
-- Status: API online/offline timer plus API Pos readout (x/z/p/r + status).
-- Axis LEDs: per-axis LED status panel (x2/x1/z/r) showing homing sweep or live position/target status.
-- Controls panel (collapsed by default): axis sliders, direct control interval, and view toggles.
-- Axis Limits panel: per-axis velocity/accel steps with Apply (persisted in localStorage).
-- Scan Path panel: radius, waypoints, repeat cycles, start direction, start at center, dry run,
-  progress + estimated run time, plus Pause/Resume and Stop while scanning.
-- Point Cloud panel (collapsible): start/stop/clear range sampling and optional laser guide
-  (enabled by default).
-- Emergency Stop sends /stop to x/z/p/r/x1/x2.
+See the complete [setup guide](docs/SETUP.md).
 
-### Interaction
-- Drag handles in the scene to adjust Z, X, P, and R (dragging the base sphere moves X+Z).
-- Mouse: left drag orbit, middle drag pan, wheel zoom.
-- Keyboard: WASD pans the view target.
-- Viewcube: click faces to snap view; camera selector toggles perspective/orthographic.
+## 🧩 Architecture
 
-### Scene Reference
-- Disc top surface sits at X0/Z-18 (disc center at Z-22 with 8 mm thickness).
-- Scan origin anchor is at X0/Z30.
-- Z-axis slider lower limit is 30.
+```mermaid
+flowchart LR
+    B[Web browser] --> W[Three.js client]
+    W -->|REST /api/*| A[Compatible FastAPI bridge]
+    W -->|WebSocket| A
+    A -->|UART /dev/serial0| T[Teensy controllers]
+    T --> X[Axes r · z · x1 · x2]
+    T --> S[Z limit switch]
+    T --> R[VL6180X range sensor]
+```
 
-## Direct Control
+The browser side is static HTML/CSS/JavaScript and loads Three.js `0.157.0` from unpkg. The compatible backend described by this repository bridges HTTP/WebSocket requests to newline-delimited controller commands over `/dev/serial0` at 1,000,000 baud. See [architecture details](docs/ARCHITECTURE.md) and the [API contract](docs/API.md).
 
-When enabled, the UI periodically sends `/moveabs` updates based on the current slider
-values. Direct control is only available when the API reports `status=ok` and the stage
-is homed.
+## Main capabilities
 
-## Scan Path Mode
+- Interactive X/Z/P/R kinematics visualization with perspective and orthographic views.
+- Drag controls, axis/readout overlays, driver status/settings, homing, and emergency-stop UI.
+- Coordinated quarter-circle scan-path generation with waypoints, repeats, pause/resume, stop, and dry-run mode.
+- Live range sampling over the R-axis WebSocket and in-scene point-cloud rendering.
+- Standalone visualization when the hardware API is offline.
 
-The scan path is a quarter-circle arc around the scan origin in the XZ plane.
-If the nominal arc exceeds axis limits, the path is clamped to the bounds,
-creating straight segments along the limits before returning to the arc.
-The resulting path is sampled into the configured number of waypoints.
+## 🔒 Security model
 
-At each waypoint the system:
-- Moves X/Z/P to the waypoint (P is locked to the scan origin)
-- Rotates the R axis by 360 degrees
-- Proceeds to the next waypoint
+The compatible control API is documented as unauthenticated and intended for a trusted local network. It can command physical motion and controller operations; do not expose it directly to the public internet. Read [SECURITY.md](SECURITY.md) before connecting real hardware.
 
-The path is traversed forward, then reversed back to the start, repeating for
-the configured number of cycles. On the reverse path, the R rotation runs in
-the opposite direction to avoid accumulating position on one side.
+## Documentation
 
-Scan execution pauses direct control and forces lock-to-origin while active.
-Dry run performs the same sequence in software without calling the API.
-You can Pause/Resume or Stop from the Scan Path panel during a run.
+- [Setup](docs/SETUP.md) — step-by-step local and hardware-connected setup.
+- [Requirements](docs/REQUIREMENTS.md) — verified hardware/software facts, unknowns, and constraints.
+- [Architecture](docs/ARCHITECTURE.md) — component boundaries and data flow.
+- [API](docs/API.md) — compatible FastAPI REST/WebSocket contract.
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — repository-supported failure modes.
+- [Prompting](docs/PROMPTING.md) — safe AI/agent prompt patterns for this project.
+- [Public release checklist](docs/PUBLIC_RELEASE_CHECKLIST.md) — privacy and release checks.
+- [Contributing](CONTRIBUTING.md) — contribution and public-data rules.
+- [Security](SECURITY.md) — deployment and vulnerability-reporting guidance.
 
-## Point Cloud Mode
+## Repository layout
 
-Point Cloud sampling triggers `/measure` on axis R and listens to `/ws/axis/r`
-for range samples. Each range value is projected from the current arm angle to
-build an in-scene point cloud (up to 20k points). The cloud is stored in the
-rotating platform frame, so previously captured dots rotate with the R axis.
-Use Clear to reset the cloud and Show Laser to visualize the measurement ray
-(enabled by default).
+```text
+.
+├── webapp/
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
+├── docs/
+│   ├── API.md
+│   ├── ARCHITECTURE.md
+│   ├── REQUIREMENTS.md
+│   ├── SETUP.md
+│   ├── TROUBLESHOOTING.md
+│   ├── PROMPTING.md
+│   ├── PUBLIC_RELEASE_CHECKLIST.md
+│   └── assets/architecture.svg
+├── CONTRIBUTING.md
+├── SECURITY.md
+├── NOTICE
+└── LICENSE
+```
+
+## License
+
+Licensed under the Apache License 2.0 with the Commons Clause License Condition v1.0. Internal business use, modification, and redistribution are allowed under the license terms; selling the software itself or offering a product or service whose value derives substantially from this software is restricted. See [LICENSE](LICENSE).
+
+## Release status
+
+The `public-ready-review` branch contains the public-facing cleanup work for review. The final release gate remains the history sanitization and verification documented in [docs/PUBLIC_RELEASE_CHECKLIST.md](docs/PUBLIC_RELEASE_CHECKLIST.md); do not treat an unchecked history-cleanup item as completed.
