@@ -20,3 +20,5 @@ jobs:
 
       - name: Audit, sanitize, verify, and rewrite retained refs
         run: python3 scripts/public_release_sanitize.py
+
+# One-shot trigger for final public-readiness review; repository visibility is not changed.
