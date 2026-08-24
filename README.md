@@ -9,7 +9,7 @@ Interactive Three.js visualization, scan-path planning, and browser control clie
 
 ScanBot3000 Kinematics renders the stage and scan geometry in the browser. It works as a standalone visualization or connects to the project FastAPI bridge for live positions, homing, coordinated motion, driver controls, LEDs, emergency stop, scan paths, and VL6180X range sampling.
 
-> **Project home:** [DreamMakers2/Scanbot3000](https://github.com/DreamMakers2/Scanbot3000)  
+> **Project home:** [Scanbot3000](https://github.com/DreamMakers2/Scanbot3000)  
 > **Control server:** [ScanBot3000-control](https://github.com/DreamMakers2/ScanBot3000-control)  
 > **Firmware:** [ScanBot3000-firmware](https://github.com/DreamMakers2/ScanBot3000-firmware)
 
