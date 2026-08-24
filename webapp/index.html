@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scanbot3000 Kinematics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="hero">
+        <div class="title">Scanbot3000 Kinematics</div>
+        <div class="subtitle">
+          Live 3D sketch of the linear stage, arm deflection, and rotation
+          indicator.
+        </div>
+        <div class="legal">Scanbot3000 Kinematics — see LICENSE for terms.</div>
+      </header>
+      <div class="viewport">
+        <canvas id="scene"></canvas>
+        <div class="top-controls">
+          <button class="top-button" id="driverStatusButton" type="button">Driver Status</button>
+          <button class="top-button" id="driverSettingsButton" type="button">Driver Settings</button>
+          <button class="top-button" id="homeZButton" type="button">Home</button>
+        </div>
+        <div class="api-status" id="apiStatus">
+          <span class="api-status-state" id="apiStatusState">OFFLINE</span>
+          <span class="api-status-time" id="apiStatusTime">0s</span>
+        </div>
+        <div class="hud-stack">
+          <div class="led-panel" id="ledPanel">
+            <div class="led-title">Axis LEDs</div>
+            <div class="led-grid" id="ledGrid" role="group" aria-label="Axis LED controls"></div>
+          </div>
+          <div class="scan-panel" id="scanPanel">
+            <div class="scan-title">Scan Path</div>
+            <div class="control">
+              <label for="scanRadius">Scan radius</label>
+              <div class="control-row">
+                <input id="scanRadius" type="range" min="110" max="450" value="320" step="1" />
+                <output id="scanRadiusVal">320</output>
+              </div>
+            </div>
+            <div class="scan-inline">
+              <div class="scan-field">
+                <label for="scanWaypoints">Waypoints</label>
+                <input id="scanWaypoints" type="number" min="3" max="20" step="1" value="9" />
+              </div>
+              <div class="scan-field">
+                <label for="scanRepeats">Repeat cycles</label>
+                <input id="scanRepeats" type="number" min="1" max="10" step="1" value="3" />
+              </div>
+            </div>
+            <div class="scan-field">
+              <label for="scanStartDirection">Start direction</label>
+              <select id="scanStartDirection">
+                <option value="forward" selected>Forward</option>
+                <option value="reverse">Reverse</option>
+              </select>
+            </div>
+            <div class="scan-toggle-row">
+              <div class="toggle scan-toggle">
+                <input id="scanDryRun" type="checkbox" />
+                <label for="scanDryRun">Dry run</label>
+              </div>
+              <div class="toggle scan-toggle">
+                <input id="scanStartCenter" type="checkbox" checked />
+                <label for="scanStartCenter">Start at center</label>
+              </div>
+            </div>
+            <div class="scan-progress">
+              <div class="scan-progress-label">
+                <span>Progress</span>
+                <output id="scanProgressText">0%</output>
+              </div>
+              <div class="scan-progress-bar">
+                <div class="scan-progress-fill" id="scanProgressFill"></div>
+              </div>
+              <div class="scan-progress-meta">
+                <span>Est run time</span>
+                <output id="scanEstimate">--</output>
+              </div>
+            </div>
+            <div class="scan-actions">
+              <button class="scan-start" id="scanStart" type="button">Start Scan</button>
+              <div class="scan-run-controls" id="scanRunControls">
+                <button class="scan-action scan-action--pause" id="scanPause" type="button">Pause</button>
+                <button class="scan-action scan-action--stop" id="scanStop" type="button">Stop</button>
+              </div>
+            </div>
+          </div>
+          <div class="hud pointcloud-panel" id="pointCloudPanel">
+            <button class="hud-title" id="pointCloudToggle" type="button">
+              <span>Point Cloud</span>
+              <span class="hud-title-icon" aria-hidden="true">v</span>
+            </button>
+            <div class="hud-body">
+              <div class="pointcloud-row">
+                <label for="pointCloudSeconds">Seconds</label>
+                <input id="pointCloudSeconds" type="number" min="1" max="300" step="1" value="30" />
+              </div>
+              <div class="pointcloud-actions">
+                <button class="pointcloud-button is-start" id="pointCloudStart" type="button">Start</button>
+                <button class="pointcloud-button is-stop" id="pointCloudStop" type="button" disabled>Stop</button>
+                <button class="pointcloud-button is-clear" id="pointCloudClear" type="button">Clear</button>
+              </div>
+              <div class="toggle">
+                <input id="pointCloudLaserToggle" type="checkbox" checked />
+                <label for="pointCloudLaserToggle">Show Laser</label>
+              </div>
+              <div class="pointcloud-status" id="pointCloudStatus" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="hud is-collapsed" id="controlsPanel">
+            <button class="hud-title" id="controlsToggle" type="button">
+              <span>Controls</span>
+              <span class="hud-title-icon" aria-hidden="true">^</span>
+            </button>
+            <div class="hud-body">
+              <div class="toggle">
+                <input id="directControlToggle" type="checkbox" />
+                <label for="directControlToggle">Direct Control</label>
+              </div>
+              <div class="direct-control-row">
+                <label for="directControlInterval">Interval (s)</label>
+                <input id="directControlInterval" type="number" min="1" max="60" step="1" value="5" />
+              </div>
+              <div class="control">
+                <label for="zAxis">Z-axis (linear stage)</label>
+                <div class="control-row">
+                  <input id="zAxis" type="range" min="30" max="485" value="200" step="0.1" />
+                  <div class="value-pair">
+                    <output id="zAxisVal">200.0</output>
+                    <span class="pos">pos <output id="zPosVal">-4375.0</output></span>
+                  </div>
+                </div>
+              </div>
+              <div class="control">
+                <label for="xAxis">X-axis (base position)</label>
+                <div class="control-row">
+                  <input id="xAxis" type="range" min="23" max="443" value="23" step="0.1" />
+                  <div class="value-pair">
+                    <output id="xAxisVal">23.0</output>
+                    <span class="pos">pos <output id="xPosVal">2100.0</output></span>
+                  </div>
+                </div>
+              </div>
+              <div class="control">
+                <label for="pAxis">P-axis (arm deflection)</label>
+                <div class="control-row">
+                  <input id="pAxis" type="range" min="-90" max="90" value="0" step="0.1" />
+                  <output id="pAxisVal">0.0</output>
+                </div>
+              </div>
+              <div class="control">
+                <label for="rAxis">R-axis (rotation)</label>
+                <div class="control-row">
+                  <input id="rAxis" type="range" min="0" max="5000" value="0" step="1" />
+                  <div class="value-pair">
+                    <output id="rAxisVal">0.0</output>
+                    <span class="pos">pos <output id="rPosVal">0</output></span>
+                  </div>
+                </div>
+              </div>
+              <div class="toggle">
+                <input id="lockOrigin" type="checkbox" />
+                <label for="lockOrigin">Lock to origin</label>
+              </div>
+              <div class="toggle">
+                <input id="toggleLabels" type="checkbox" />
+                <label for="toggleLabels">Show axis labels</label>
+              </div>
+              <div class="toggle">
+                <input id="toggleCoordLabels" type="checkbox" />
+                <label for="toggleCoordLabels">Show coordinate labels</label>
+              </div>
+            </div>
+          </div>
+          <div class="legend">
+            <div class="legend-item"><span class="swatch base"></span>Base frame</div>
+            <div class="legend-item"><span class="swatch z-axis"></span>Z-axis</div>
+            <div class="legend-item"><span class="swatch axis"></span>X-axis</div>
+            <div class="legend-item"><span class="swatch arm"></span>P-axis</div>
+            <div class="legend-item"><span class="swatch spin"></span>R-axis</div>
+          </div>
+        </div>
+        <div class="axis-indicator"><canvas id="axisIndicator"></canvas></div>
+        <div class="viewcube-panel">
+          <canvas id="viewCube"></canvas>
+          <div class="viewcube-controls">
+            <label for="cameraMode">View</label>
+            <select id="cameraMode">
+              <option value="perspective" selected>Perspective</option>
+              <option value="orthographic">Orthographic</option>
+            </select>
+          </div>
+        </div>
+        <div class="pos-panel" id="posPanel">
+          <div class="pos-title">API Pos</div>
+          <div class="pos-grid">
+            <span class="pos-label">x</span><output id="apiPosX">--</output>
+            <span class="pos-label">z</span><output id="apiPosZ">--</output>
+            <span class="pos-label">p</span><output id="apiPosP">--</output>
+            <span class="pos-label">r</span><output id="apiPosR">--</output>
+          </div>
+          <div class="pos-status"><span>Status</span><output id="apiPosStatus">--</output></div>
+        </div>
+        <div class="axis-tuning-panel" id="axisTuningPanel">
+          <div class="axis-tuning-title">Axis Limits</div>
+          <div class="axis-tuning-grid">
+            <div class="axis-tuning-row">
+              <div class="axis-tag">Z</div>
+              <div class="axis-tuning-controls">
+                <div class="axis-tuning-control"><label class="axis-metric" for="axisVelZ">Vel</label><input id="axisVelZ" type="range" min="0" max="8" value="6" step="1" /><output id="axisVelZVal">500</output></div>
+                <div class="axis-tuning-control"><label class="axis-metric" for="axisAccZ">Acc</label><input id="axisAccZ" type="range" min="0" max="4" value="2" step="1" /><output id="axisAccZVal">100</output></div>
+              </div>
+            </div>
+            <div class="axis-tuning-row">
+              <div class="axis-tag">X</div>
+              <div class="axis-tuning-controls">
+                <div class="axis-tuning-control"><label class="axis-metric" for="axisVelX">Vel</label><input id="axisVelX" type="range" min="0" max="8" value="6" step="1" /><output id="axisVelXVal">500</output></div>
+                <div class="axis-tuning-control"><label class="axis-metric" for="axisAccX">Acc</label><input id="axisAccX" type="range" min="0" max="4" value="2" step="1" /><output id="axisAccXVal">100</output></div>
+              </div>
+            </div>
+            <div class="axis-tuning-row">
+              <div class="axis-tag">P</div>
+              <div class="axis-tuning-controls">
+                <div class="axis-tuning-control"><label class="axis-metric" for="axisVelP">Vel</label><input id="axisVelP" type="range" min="0" max="8" value="6" step="1" /><output id="axisVelPVal">500</output></div>
+                <div class="axis-tuning-control"><label class="axis-metric" for="axisAccP">Acc</label><input id="axisAccP" type="range" min="0" max="4" value="2" step="1" /><output id="axisAccPVal">100</output></div>
+              </div>
+            </div>
+            <div class="axis-tuning-row">
+              <div class="axis-tag">R</div>
+              <div class="axis-tuning-controls">
+                <div class="axis-tuning-control"><label class="axis-metric" for="axisVelR">Vel</label><input id="axisVelR" type="range" min="0" max="8" value="6" step="1" /><output id="axisVelRVal">500</output></div>
+                <div class="axis-tuning-control"><label class="axis-metric" for="axisAccR">Acc</label><input id="axisAccR" type="range" min="0" max="4" value="2" step="1" /><output id="axisAccRVal">100</output></div>
+              </div>
+            </div>
+          </div>
+          <button class="axis-apply" id="axisApply" type="button">Apply</button>
+        </div>
+        <div class="center-controls" id="centerControls">
+          <button class="emergency-stop" id="emergencyStop" type="button">EMERGENCY STOP</button>
+          <div class="view-readout" id="viewReadout"></div>
+        </div>
+        <div class="popup-layer" id="popupLayer"></div>
+      </div>
+    </div>
+    <script src="https://unpkg.com/three@0.157.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.157.0/examples/js/lines/LineSegmentsGeometry.js"></script>
+    <script src="https://unpkg.com/three@0.157.0/examples/js/lines/LineGeometry.js"></script>
+    <script src="https://unpkg.com/three@0.157.0/examples/js/lines/LineMaterial.js"></script>
+    <script src="https://unpkg.com/three@0.157.0/examples/js/lines/LineSegments2.js"></script>
+    <script src="https://unpkg.com/three@0.157.0/examples/js/lines/Line2.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
