@@ -9,11 +9,11 @@ Interactive Three.js visualization, scan-path planning, and browser control clie
 
 ScanBot3000 Kinematics renders the stage and scan geometry in the browser. It works as a standalone visualization or connects to the project FastAPI bridge for live positions, homing, coordinated motion, driver controls, LEDs, emergency stop, scan paths, and VL6180X range sampling.
 
+![ScanBot3000 kinematics](docs/assets/scanbot3000-kinematics.png)
+
 > **Project home:** [Scanbot3000](https://github.com/DreamMakers2/Scanbot3000)  
 > **Control server:** [ScanBot3000-control](https://github.com/DreamMakers2/ScanBot3000-control)  
 > **Firmware:** [ScanBot3000-firmware](https://github.com/DreamMakers2/ScanBot3000-firmware)
-
-![Architecture infographic](docs/assets/architecture.svg)
 
 ## 🚀 Getting started
 
@@ -37,13 +37,7 @@ Replace `<host>` locally; do not commit a machine-specific address. See [docs/SE
 
 ## 🧩 Architecture
 
-```mermaid
-flowchart LR
-    B[Operator browser] --> W[Three.js kinematics client]
-    W -->|REST + WebSocket| C[ScanBot3000-control]
-    C -->|UART · 1 Mbit/s| T[Teensy 4.1 supervisor]
-    T --> A[ESP32-S3 axes · R/Z/X1/X2]
-```
+![Architecture infographic](docs/assets/architecture.svg)
 
 The browser layer is static HTML/CSS/JavaScript and loads Three.js `0.157.0` from unpkg. The project control server converts HTTP/WebSocket operations to the Teensy newline-delimited console protocol. The firmware repository owns the embedded motion behavior.
 
